@@ -1,5 +1,6 @@
 """Various utility functions."""
 
+import collections
 import numpy as np
 from . import defs
 
@@ -114,6 +115,26 @@ def as_xyz_components(components, **kwargs):
 
     """
     return XyzComponents([np.asarray(c, **kwargs) for c in components])
+
+
+def as_signal(arg, **kwargs):
+    """
+
+    """
+    try:
+        # In Python 3, this could be: data, samplerate, *time = arg
+        data, samplerate, time = arg[0], arg[1], arg[2:]
+        time, = time or [0]
+    except (IndexError, TypeError, ValueError):
+        pass
+    else:
+        valid_arguments = (not np.isscalar(data) and
+                           np.isscalar(samplerate) and
+                           np.isscalar(time))
+        if valid_arguments:
+            data = np.asarray(data, **kwargs)
+            return Signal(data, samplerate, time)
+    raise TypeError('expected audio data, samplerate, optional start time')
 
 
 def strict_arange(start, stop, step=1, endpoint=False, dtype=None, **kwargs):
@@ -346,3 +367,17 @@ class XyzComponents(np.ndarray):
 
         """
         return XyzComponents([func(i, *args, **kwargs) for i in self])
+
+
+Signal = collections.namedtuple('Signal', 'data samplerate time')
+"""Audio data, sampling rate and optional start time.
+
+This class is not meant to be instantiated by users.
+
+To pass a signal to a function, just use a `tuple` containing the audio
+data and the sampling rate, with an optional starting time (in seconds)
+as a third item.
+If you want to ensure that a given variable contains a valid signal, use
+`sfs.util.as_signal()`.
+
+"""

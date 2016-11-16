@@ -130,7 +130,7 @@ def wfs_25d_point(x0, n0, xs, xref=[0, 0, 0], c=None):
     return delays, weights
 
 
-def driving_signals(delays, weights, signal, fs=None):
+def driving_signals(delays, weights, signal):
     """Get driving signals per secondary source.
 
     Returned signals are the delayed and weighted mono input signal
@@ -157,11 +157,11 @@ def driving_signals(delays, weights, signal, fs=None):
     """
     delays = util.asarray_1d(delays)
     weights = util.asarray_1d(weights)
-    d, t_offset = apply_delays(signal, delays, fs)
-    return d * weights, t_offset
+    data, samplerate, signal_offset = apply_delays(signal, delays)
+    return util.Signal(data * weights, samplerate, signal_offset)
 
 
-def apply_delays(signal, delays, fs=None):
+def apply_delays(signal, delays):
     """Apply delays for every channel.
 
     A mono input signal gets delayed for each channel individually. The
@@ -185,15 +185,15 @@ def apply_delays(signal, delays, fs=None):
         Simulation point in time offset (seconds).
 
     """
-    if fs is None:
-        fs = defs.fs
-    signal = util.asarray_1d(signal)
+    data, samplerate, initial_offset = util.as_signal(signal)
+    data = util.asarray_1d(data)
     delays = util.asarray_1d(delays)
+    delays += initial_offset
 
-    delays_samples = np.rint(fs * delays).astype(int)
+    delays_samples = np.rint(samplerate * delays).astype(int)
     offset_samples = delays_samples.min()
     delays_samples -= offset_samples
-    out = np.zeros((delays_samples.max() + len(signal), len(delays_samples)))
-    for channel, cdelay in enumerate(delays_samples):
-        out[cdelay:cdelay + len(signal), channel] = signal
-    return out, offset_samples / fs
+    out = np.zeros((delays_samples.max() + len(data), len(delays_samples)))
+    for column, row in enumerate(delays_samples):
+        out[row:row + len(data), column] = data
+    return util.Signal(out, samplerate, offset_samples / samplerate)

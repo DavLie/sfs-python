@@ -1,13 +1,12 @@
 """Compute sound field."""
 
 from __future__ import division
-import numpy as np
 from .. import util
 from .. import defs
 from .source import point
 
 
-def p_array(x0, d, channel_weights, t, grid, source=point, fs=None, c=None):
+def p_array(x0, d, weights, observation_time, grid, source=point, c=None):
     """Compute sound field for an array of secondary sources.
 
     Parameters
@@ -17,7 +16,7 @@ def p_array(x0, d, channel_weights, t, grid, source=point, fs=None, c=None):
     d : (N, C) array_like
         Specifies the signals (with N samples) fed into each secondary
         source channel C (columns).
-    channel_weights : (C,) array_like
+    weights : (C,) array_like
         Additional weights applied during integration, e.g. source
         tapering.
     t : float
@@ -39,19 +38,19 @@ def p_array(x0, d, channel_weights, t, grid, source=point, fs=None, c=None):
         Sound pressure at grid positions.
 
     """
-    if fs is None:
-        fs = defs.fs
     if c is None:
         c = defs.c
     x0 = util.asarray_of_rows(x0)
-    channel_weights = util.asarray_1d(channel_weights)
-    d = np.asarray(d)
-    if not (len(channel_weights) == len(x0) == d.shape[1]):
+    data, samplerate, signal_offset = util.as_signal(d)
+    weights = util.asarray_1d(weights)
+    channels = data.T
+    if not (len(weights) == len(x0) == len(channels)):
         raise ValueError("Length mismatch")
     # synthesize soundfield
     p = 0
-    for signal, weight, position in zip(d.T, channel_weights, x0):
+    for channel, weight, position in zip(channels, weights, x0):
         if weight != 0:
-            p_s = source(position, signal, t, grid, fs, c)
+            signal = channel, samplerate, signal_offset
+            p_s = source(position, signal, observation_time, grid, c)
             p += p_s * weight  # integrate over secondary sources
     return p
